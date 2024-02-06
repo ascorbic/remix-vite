@@ -1,33 +1,21 @@
 import { unstable_vitePlugin as remix } from "@remix-run/dev";
-import type { ResolvedVitePluginConfig } from "@remix-run/dev/dist/vite/plugin";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
+import { netlifyEdgePlugin } from "./netlify-edge-plugin";
 import { posix as path } from "node:path";
 import { writeFile, mkdir } from "node:fs/promises";
-import { pathToFileURL } from "node:url";
-import { createRequire } from "node:module";
+import { ResolvedVitePluginConfig } from "@remix-run/dev/dist/vite/plugin";
 
 function generateEntrypoint(config: ResolvedVitePluginConfig) {
-  const server = path.resolve(
-    config.buildDirectory,
-    "server",
-    config.serverBuildFile
-  );
-  const require = createRequire(pathToFileURL(server));
-  const adapter = require.resolve("@remix-run/deno");
-
+  const server = path.resolve(config.buildDirectory, "server", "server.js");
   return /* js */ `
-    import { createRequestHandler } from "${adapter}";
-    import * as build from "${server}";
-    export default createRequestHandler({
-      build,
-    });
+    export { default } from "${server}";
 
     export const config = {
-      path: "/*",
       cache: "manual",
+      path: "/*",
       excludedPath: ["/build/*", "/favicon.ico"],
-    }`;
+    };`;
 }
 
 export default defineConfig({
@@ -44,10 +32,7 @@ export default defineConfig({
         );
       },
     }),
+    netlifyEdgePlugin(),
     tsconfigPaths(),
   ],
-  ssr: {
-    target: "webworker",
-    noExternal: true,
-  },
 });

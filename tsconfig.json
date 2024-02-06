@@ -2,7 +2,8 @@
   "include": [
     "env.d.ts",
     "**/*.ts",
-    "**/*.tsx"
+    "**/*.tsx",
+    "netlify-edge-plugin.ts"
   ],
   "compilerOptions": {
     "lib": [
