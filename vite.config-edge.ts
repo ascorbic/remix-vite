@@ -12,7 +12,7 @@ function generateEntrypoint(config: ResolvedVitePluginConfig) {
     config.serverBuildFile
   );
   return /* js */ `
-    import { createRequestHandler } from "@netlify/remix-adapter";
+    import { createRequestHandler } from "https://esm.sh/@netlify/remix-edge-adapter";
     import * as build from "${server}";
     export default createRequestHandler({
       build,
@@ -20,8 +20,9 @@ function generateEntrypoint(config: ResolvedVitePluginConfig) {
 
     export const config = {
       path: "/*",
-      preferStatic: true,
-    };`;
+      cache: "manual",
+      excludedPath: ["/build/*", "/favicon.ico"],
+    }`;
 }
 
 export default defineConfig({
@@ -29,15 +30,19 @@ export default defineConfig({
     remix({
       buildEnd: async ({ remixConfig }) => {
         const entrypoint = generateEntrypoint(remixConfig);
-        await mkdir(path.resolve(".netlify/functions-internal"), {
+        await mkdir(path.resolve(".netlify/edge-functions"), {
           recursive: true,
         });
         await writeFile(
-          path.resolve(".netlify", "functions-internal", "server.mjs"),
+          path.resolve(".netlify", "edge-functions", "server.mjs"),
           entrypoint
         );
       },
     }),
     tsconfigPaths(),
   ],
+  ssr: {
+    target: "webworker",
+    noExternal: true,
+  },
 });
