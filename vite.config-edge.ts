@@ -4,6 +4,8 @@ import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 import { posix as path } from "node:path";
 import { writeFile, mkdir } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
+import { createRequire } from "node:module";
 
 function generateEntrypoint(config: ResolvedVitePluginConfig) {
   const server = path.resolve(
@@ -11,8 +13,11 @@ function generateEntrypoint(config: ResolvedVitePluginConfig) {
     "server",
     config.serverBuildFile
   );
+  const require = createRequire(pathToFileURL(server));
+  const adapter = require.resolve("@remix-run/deno");
+
   return /* js */ `
-    import { createRequestHandler } from "https://esm.sh/@netlify/remix-edge-adapter";
+    import { createRequestHandler } from "${adapter}";
     import * as build from "${server}";
     export default createRequestHandler({
       build,
