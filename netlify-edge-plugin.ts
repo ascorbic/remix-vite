@@ -1,14 +1,31 @@
-import type { Plugin } from "vite";
+import type { Plugin, ResolvedConfig } from "vite";
+import { writeFile } from "node:fs/promises";
 import path from "path";
 
+function generateEntrypoint(server: string) {
+  return /* js */ `
+    export { default } from "${server}";
+
+    export const config = {
+      cache: "manual",
+      path: "/*",
+      excludedPath: ["/build/*", "/favicon.ico"],
+    };`;
+}
+
 export function netlifyEdgePlugin(): Plugin {
+  let resolvedConfig: ResolvedConfig;
   let currentCommand: string;
+  let isSsr: boolean | undefined;
   return {
     name: "vite-plugin-remix-netlify-edge",
     config(config, { command, isSsrBuild }) {
       currentCommand = command;
+      isSsr = isSsrBuild;
       // Configure for edge functions
       if (command === "build" && isSsrBuild) {
+        config.build ||= {};
+        config.build.manifest = true;
         const server = path.resolve(config.root ?? "", "server.ts");
         config.ssr = {
           ...config.ssr,
@@ -31,6 +48,9 @@ export function netlifyEdgePlugin(): Plugin {
           }
         }
       }
+    },
+    async configResolved(config) {
+      resolvedConfig = config;
     },
     async resolveId(source, importer, options) {
       // Conditionally resolve the server entry based on the command.
@@ -55,6 +75,20 @@ export function netlifyEdgePlugin(): Plugin {
         }
       }
       return null;
+    },
+    async writeBundle(config, bundle) {
+      if (currentCommand === "build" && isSsr) {
+        await writeFile(
+          path.join(
+            resolvedConfig.root,
+            ".netlify/edge-functions",
+            "server.mjs"
+          ),
+          generateEntrypoint(
+            path.join(resolvedConfig.build.outDir, "server.js")
+          )
+        );
+      }
     },
   };
 }
